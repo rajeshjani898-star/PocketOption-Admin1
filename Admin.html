@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="theme-color" content="#0A0A0F"/>
+  <title>TradeX Pro — Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css" rel="stylesheet"/>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:#0A0A0F;color:#E2E8F0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;}
+    ::-webkit-scrollbar{width:6px;height:6px;}
+    ::-webkit-scrollbar-track{background:#1A1A2E;}
+    ::-webkit-scrollbar-thumb{background:#334155;border-radius:3px;}
+    .sidebar{position:fixed;left:0;top:0;bottom:0;width:240px;background:#0F0F1A;border-right:1px solid #1E293B;z-index:50;overflow-y:auto;}
+    .main-content{margin-left:240px;min-height:100vh;padding:24px;}
+    .card{background:#111827;border:1px solid #1E293B;border-radius:16px;padding:20px;}
+    .stat-card{background:linear-gradient(135deg,#111827,#0F172A);border:1px solid #1E293B;border-radius:16px;padding:20px;position:relative;overflow:hidden;}
+    .stat-card::before{content:'';position:absolute;top:-30px;right:-30px;width:100px;height:100px;border-radius:50%;opacity:0.1;}
+    .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:0.7rem;font-weight:700;text-transform:uppercase;}
+    .badge-pending{background:#F59E0B22;color:#F59E0B;border:1px solid #F59E0B44;}
+    .badge-approved{background:#10B98122;color:#10B981;border:1px solid #10B98144;}
+    .badge-rejected{background:#EF444422;color:#EF4444;border:1px solid #EF444444;}
+    .badge-submitted{background:#6366F122;color:#818CF8;border:1px solid #6366F144;}
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:10px;font-size:0.82rem;font-weight:600;cursor:pointer;border:none;transition:all 0.15s;}
+    .btn:active{transform:scale(0.96);}
+    .btn-approve{background:#10B98122;color:#10B981;border:1px solid #10B98144;}
+    .btn-approve:hover{background:#10B98133;}
+    .btn-reject{background:#EF444422;color:#EF4444;border:1px solid #EF444444;}
+    .btn-reject:hover{background:#EF444433;}
+    .btn-primary{background:linear-gradient(135deg,#00E5FF,#0066FF);color:#000;font-weight:700;}
+    .btn-primary:hover{opacity:0.9;}
+    .btn-ghost{background:#1E293B;color:#94A3B8;}
+    .btn-ghost:hover{background:#273549;}
+    .nav-link{display:flex;align-items:center;gap:10px;padding:10px 16px;border-radius:10px;color:#64748B;font-size:0.875rem;cursor:pointer;transition:all 0.15s;margin-bottom:2px;}
+    .nav-link:hover{background:#1E293B;color:#CBD5E1;}
+    .nav-link.active{background:#00E5FF15;color:#00E5FF;border:1px solid #00E5FF22;}
+    .nav-link i{font-size:1.1rem;width:20px;}
+    .table-row{display:grid;gap:12px;padding:12px 16px;border-radius:12px;align-items:center;border:1px solid #1E293B;background:#111827;margin-bottom:8px;transition:border-color 0.15s;}
+    .table-row:hover{border-color:#334155;}
+    .tab-btn{padding:8px 18px;border-radius:10px;font-size:0.82rem;font-weight:600;cursor:pointer;border:none;transition:all 0.15s;background:#1E293B;color:#64748B;}
+    .tab-btn.active{background:#00E5FF;color:#000;}
+    .input{background:#1E293B;border:1px solid #334155;border-radius:10px;padding:10px 14px;color:#E2E8F0;outline:none;font-size:0.875rem;width:100%;}
+    .input:focus{border-color:#00E5FF;}
+    /* Auth overlay */
+    #adminAuth{position:fixed;inset:0;background:#0A0A0F;z-index:200;display:flex;align-items:center;justify-content:center;}
+    #adminAuth.hidden{display:none;}
+    /* Toast */
+    .toast{position:fixed;top:24px;right:24px;background:#111827;border:1px solid #00E5FF44;color:#E2E8F0;padding:12px 20px;border-radius:12px;z-index:500;display:none;font-size:0.875rem;box-shadow:0 8px 32px rgba(0,229,255,0.1);}
+    .toast.show{display:block;animation:toastIn 0.3s ease;}
+    @keyframes toastIn{from{opacity:0;transform:translateX(20px);}to{opacity:1;transform:translateX(0);}}
+    /* Modal */
+    .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:150;justify-content:center;align-items:center;padding:1rem;}
+    .modal.open{display:flex;}
+    .modal-box{background:#111827;border:1px solid #1E293B;border-radius:20px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;}
+    .modal-head{padding:16px 20px;border-bottom:1px solid #1E293B;display:flex;justify-content:space-between;align-items:center;}
+    .modal-body{padding:20px;}
+    /* Page sections */
+    .page{display:none;}.page.active{display:block;}
+    /* Stats glow */
+    .glow-cyan{box-shadow:0 0 30px rgba(0,229,255,0.1);}
+    .glow-green{box-shadow:0 0 30px rgba(16,185,129,0.1);}
+    .glow-red{box-shadow:0 0 30px rgba(239,68,68,0.1);}
+    .glow-purple{box-shadow:0 0 30px rgba(139,92,246,0.1);}
+    /* Responsive */
+    @media(max-width:768px){.sidebar{width:100%;position:relative;height:auto;}.main-content{margin-left:0;}}
+  </style>
+</head>
+<body>
+
+<!-- ADMIN LOGIN -->
+<div id="adminAuth">
+  <div style="width:100%;max-width:380px;padding:2rem;">
+    <div class="text-center mb-8">
+      <div style="font-size:2rem;font-weight:900;background:linear-gradient(135deg,#00E5FF,#0066FF);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">TradeX Pro</div>
+      <div style="color:#64748B;font-size:0.875rem;margin-top:4px;">Admin Dashboard</div>
+    </div>
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:16px;font-size:1rem;">🔐 Admin Login</div>
+      <input type="email" id="adminEmail" class="input" placeholder="Admin Email" style="margin-bottom:12px;">
+      <input type="password" id="adminPass" class="input" placeholder="Password" style="margin-bottom:20px;">
+      <button onclick="adminLogin()" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;">Login</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN ADMIN APP -->
+<div id="adminApp" style="display:none;">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div style="padding:20px 16px;border-bottom:1px solid #1E293B;">
+      <div style="font-weight:900;font-size:1.1rem;background:linear-gradient(135deg,#00E5FF,#0066FF);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">TradeX Pro</div>
+      <div style="font-size:0.72rem;color:#64748B;margin-top:2px;">Admin Panel</div>
+    </div>
+    <div style="padding:12px 8px;">
+      <div class="nav-link active" onclick="navTo('dashboard',this)"><i class="ri-dashboard-3-line"></i>Dashboard</div>
+      <div class="nav-link" onclick="navTo('deposits',this)"><i class="ri-bank-card-line"></i>Deposits <span id="depBadge" style="margin-left:auto;background:#F59E0B22;color:#F59E0B;border:1px solid #F59E0B44;padding:1px 7px;border-radius:20px;font-size:0.65rem;font-weight:700;"></span></div>
+      <div class="nav-link" onclick="navTo('withdrawals',this)"><i class="ri-send-plane-line"></i>Withdrawals <span id="wdBadge" style="margin-left:auto;background:#F59E0B22;color:#F59E0B;border:1px solid #F59E0B44;padding:1px 7px;border-radius:20px;font-size:0.65rem;font-weight:700;"></span></div>
+      <div class="nav-link" onclick="navTo('users',this)"><i class="ri-team-line"></i>Users</div>
+      <div class="nav-link" onclick="navTo('kyc',this)"><i class="ri-shield-check-line"></i>KYC <span id="kycBadge" style="margin-left:auto;background:#6366F122;color:#818CF8;border:1px solid #6366F144;padding:1px 7px;border-radius:20px;font-size:0.65rem;font-weight:700;"></span></div>
+      <div class="nav-link" onclick="navTo('support',this)"><i class="ri-customer-service-2-line"></i>Support Chats</div>
+      <div class="nav-link" onclick="navTo('broadcast',this)"><i class="ri-notification-3-line"></i>Broadcast</div>
+      <div class="nav-link" onclick="navTo('settings',this)"><i class="ri-settings-3-line"></i>Settings</div>
+      <div class="nav-link" onclick="adminLogout()" style="margin-top:20px;"><i class="ri-logout-box-r-line"></i>Logout</div>
+    </div>
+    <div style="padding:12px 16px;border-top:1px solid #1E293B;margin-top:auto;">
+      <div style="font-size:0.75rem;color:#64748B;">Logged in as</div>
+      <div id="adminEmailLabel" style="font-size:0.82rem;color:#00E5FF;font-weight:600;word-break:break-all;"></div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main-content">
+
+    <!-- ═══ DASHBOARD ═══ -->
+    <div id="page-dashboard" class="page active">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+        <div>
+          <h1 style="font-size:1.5rem;font-weight:800;">Dashboard</h1>
+          <div style="color:#64748B;font-size:0.82rem;" id="dashDate"></div>
+        </div>
+        <button onclick="refreshAll()" class="btn btn-ghost"><i class="ri-refresh-line"></i>Refresh</button>
+      </div>
+
+      <!-- Stat cards -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:28px;">
+        <div class="stat-card glow-cyan">
+          <div style="font-size:0.75rem;color:#64748B;margin-bottom:8px;">TOTAL USERS</div>
+          <div style="font-size:2rem;font-weight:900;color:#00E5FF;" id="statUsers">—</div>
+          <div style="font-size:0.75rem;color:#64748B;margin-top:4px;"><i class="ri-user-add-line"></i> <span id="statNewToday">0</span> today</div>
+        </div>
+        <div class="stat-card glow-green">
+          <div style="font-size:0.75rem;color:#64748B;margin-bottom:8px;">TOTAL DEPOSITS</div>
+          <div style="font-size:2rem;font-weight:900;color:#10B981;" id="statDeposits">₹0</div>
+          <div style="font-size:0.75rem;color:#F59E0B;margin-top:4px;"><span id="statDepPending">0</span> pending</div>
+        </div>
+        <div class="stat-card glow-red">
+          <div style="font-size:0.75rem;color:#64748B;margin-bottom:8px;">TOTAL WITHDRAWN</div>
+          <div style="font-size:2rem;font-weight:900;color:#EF4444;" id="statWithdrawn">₹0</div>
+          <div style="font-size:0.75rem;color:#F59E0B;margin-top:4px;"><span id="statWdPending">0</span> pending</div>
+        </div>
+        <div class="stat-card glow-purple">
+          <div style="font-size:0.75rem;color:#64748B;margin-bottom:8px;">TOTAL TRADES</div>
+          <div style="font-size:2rem;font-weight:900;color:#A78BFA;" id="statTrades">—</div>
+          <div style="font-size:0.75rem;color:#64748B;margin-top:4px;">Across all users</div>
+        </div>
+      </div>
+
+      <!-- Recent Activity -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <div style="font-weight:700;">⏳ Pending Deposits</div>
+            <button onclick="navTo('deposits',document.querySelector('[onclick*=deposits]'))" class="btn btn-ghost" style="font-size:0.75rem;">View All</button>
+          </div>
+          <div id="dashPendingDep" style="space-y:8px;max-height:280px;overflow-y:auto;">
+            <div style="color:#64748B;font-size:0.82rem;text-align:center;padding:24px;">Loading...</div>
+          </div>
+        </div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <div style="font-weight:700;">⏳ Pending Withdrawals</div>
+            <button onclick="navTo('withdrawals',document.querySelector('[onclick*=withdrawals]'))" class="btn btn-ghost" style="font-size:0.75rem;">View All</button>
+          </div>
+          <div id="dashPendingWd" style="max-height:280px;overflow-y:auto;">
+            <div style="color:#64748B;font-size:0.82rem;text-align:center;padding:24px;">Loading...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ DEPOSITS ═══ -->
+    <div id="page-deposits" class="page">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:gap;">
+        <h1 style="font-size:1.5rem;font-weight:800;">Deposit Requests</h1>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="tab-btn active" onclick="filterDep('pending',this)">Pending</button>
+          <button class="tab-btn" onclick="filterDep('approved',this)">Approved</button>
+          <button class="tab-btn" onclick="filterDep('rejected',this)">Rejected</button>
+          <button class="tab-btn" onclick="filterDep('all',this)">All</button>
+        </div>
+      </div>
+      <div id="depositList"></div>
+    </div>
+
+    <!-- ═══ WITHDRAWALS ═══ -->
+    <div id="page-withdrawals" class="page">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+        <h1 style="font-size:1.5rem;font-weight:800;">Withdrawal Requests</h1>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="tab-btn active" onclick="filterWd('pending',this)">Pending</button>
+          <button class="tab-btn" onclick="filterWd('approved',this)">Approved</button>
+          <button class="tab-btn" onclick="filterWd('rejected',this)">Rejected</button>
+          <button class="tab-btn" onclick="filterWd('all',this)">All</button>
+        </div>
+      </div>
+      <div id="withdrawalList"></div>
+    </div>
+
+    <!-- ═══ USERS ═══ -->
+    <div id="page-users" class="page">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+        <h1 style="font-size:1.5rem;font-weight:800;">User Management</h1>
+        <input type="text" class="input" placeholder="🔍 Search by name or email..." style="width:260px;" oninput="searchUsers(this.value)">
+      </div>
+      <div id="userList"></div>
+    </div>
+
+    <!-- ═══ KYC ═══ -->
+    <div id="page-kyc" class="page">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+        <h1 style="font-size:1.5rem;font-weight:800;">KYC Verification</h1>
+        <div style="display:flex;gap:8px;">
+          <button class="tab-btn active" onclick="filterKyc('pending',this)">Pending</button>
+          <button class="tab-btn" onclick="filterKyc('submitted',this)">Submitted</button>
+          <button class="tab-btn" onclick="filterKyc('approved',this)">Approved</button>
+          <button class="tab-btn" onclick="filterKyc('all',this)">All</button>
+        </div>
+      </div>
+      <div id="kycList"></div>
+    </div>
+
+    <!-- ═══ SUPPORT ═══ -->
+    <div id="page-support" class="page">
+      <h1 style="font-size:1.5rem;font-weight:800;margin-bottom:24px;">Support Chats</h1>
+      <div style="display:grid;grid-template-columns:280px 1fr;gap:16px;height:calc(100vh - 160px);">
+        <div class="card" style="overflow-y:auto;padding:12px;">
+          <div style="font-size:0.75rem;color:#64748B;margin-bottom:12px;font-weight:600;">CONVERSATIONS</div>
+          <div id="chatUserList"></div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;padding:0;overflow:hidden;">
+          <div id="chatHeader" style="padding:16px 20px;border-bottom:1px solid #1E293B;font-weight:700;color:#64748B;">Select a conversation</div>
+          <div id="chatBody" class="flex-1" style="overflow-y:auto;padding:16px;flex:1;min-height:0;"></div>
+          <div id="chatInputArea" style="display:none;padding:12px;border-top:1px solid #1E293B;display:none;gap:8px;">
+            <input type="text" id="adminChatInput" class="input" placeholder="Reply to user..." onkeydown="if(event.key==='Enter')sendAdminReply()">
+            <button onclick="sendAdminReply()" class="btn btn-primary" style="flex-shrink:0;">Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ BROADCAST ═══ -->
+    <div id="page-broadcast" class="page">
+      <h1 style="font-size:1.5rem;font-weight:800;margin-bottom:24px;">Broadcast Notification</h1>
+      <div style="max-width:560px;">
+        <div class="card">
+          <div style="margin-bottom:16px;">
+            <label style="display:block;font-size:0.82rem;color:#94A3B8;margin-bottom:6px;">Title</label>
+            <input type="text" id="bcTitle" class="input" placeholder="e.g. 🎉 Weekend Bonus!">
+          </div>
+          <div style="margin-bottom:16px;">
+            <label style="display:block;font-size:0.82rem;color:#94A3B8;margin-bottom:6px;">Message</label>
+            <textarea id="bcMessage" class="input" rows="4" placeholder="Type your message to all users..."></textarea>
+          </div>
+          <div style="margin-bottom:20px;">
+            <label style="display:block;font-size:0.82rem;color:#94A3B8;margin-bottom:6px;">Type</label>
+            <select id="bcType" class="input">
+              <option value="info">ℹ️ Info</option>
+              <option value="promo">🎁 Promotion</option>
+              <option value="maintenance">🔧 Maintenance</option>
+              <option value="bonus">💰 Bonus</option>
+            </select>
+          </div>
+          <button onclick="sendBroadcast()" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;font-size:0.95rem;">
+            <i class="ri-send-plane-fill"></i> Send Broadcast
+          </button>
+        </div>
+        <div class="card" style="margin-top:20px;">
+          <div style="font-weight:700;margin-bottom:12px;">📣 Broadcast History</div>
+          <div id="broadcastHistory" style="space-y:8px;">
+            <div style="color:#64748B;font-size:0.82rem;text-align:center;padding:24px;">No broadcasts yet</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ SETTINGS ═══ -->
+    <div id="page-settings" class="page">
+      <h1 style="font-size:1.5rem;font-weight:800;margin-bottom:24px;">Platform Settings</h1>
+      <div style="max-width:560px;display:flex;flex-direction:column;gap:16px;">
+        <div class="card">
+          <div style="font-weight:700;margin-bottom:16px;">💰 Trade Settings</div>
+          <div style="margin-bottom:12px;">
+            <label style="display:block;font-size:0.82rem;color:#94A3B8;margin-bottom:6px;">Payout % (e.g. 82)</label>
+            <input type="number" id="settingPayout" class="input" placeholder="82" min="50" max="95">
+          </div>
+          <div style="margin-bottom:12px;">
+            <label style="display:block;font-size:0.82rem;color:#94A3B8;margin-bottom:6px;">Win Rate % (e.g. 45 = user wins 55%)</label>
+            <input type="number" id="settingWinRate" class="input" placeholder="45" min="10" max="90">
+          </div>
+          <div style="margin-bottom:16px;">
+            <label style="display:block;font-size:0.82rem;color:#94A3B8;margin-bottom:6px;">Min Trade Amount (₹)</label>
+            <input type="number" id="settingMinTrade" class="input" placeholder="10">
+          </div>
+          <button onclick="saveSettings()" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;">Save Settings</button>
+        </div>
+        <div class="card">
+          <div style="font-weight:700;margin-bottom:16px;">🏦 Deposit Settings</div>
+          <div style="margin-bottom:12px;">
+            <label style="display:block;font-size:0.82rem;color:#94A3B8;margin-bottom:6px;">Instamojo Link</label>
+            <input type="text" id="settingInstamojo" class="input" placeholder="https://www.instamojo.com/@...">
+          </div>
+          <div style="margin-bottom:16px;">
+            <label style="display:block;font-size:0.82rem;color:#94A3B8;margin-bottom:6px;">Min Deposit (₹)</label>
+            <input type="number" id="settingMinDep" class="input" placeholder="100">
+          </div>
+          <div style="margin-bottom:12px;">
+            <label style="display:block;font-size:0.82rem;color:#94A3B8;margin-bottom:6px;">Min Withdrawal (₹)</label>
+            <input type="number" id="settingMinWd" class="input" placeholder="200">
+          </div>
+          <button onclick="saveSettings()" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;">Save Settings</button>
+        </div>
+        <div class="card">
+          <div style="font-weight:700;margin-bottom:16px;">🎁 Referral Bonus</div>
+          <div style="margin-bottom:16px;">
+            <label style="display:block;font-size:0.82rem;color:#94A3B8;margin-bottom:6px;">Bonus per referral (₹)</label>
+            <input type="number" id="settingRefBonus" class="input" placeholder="100">
+          </div>
+          <button onclick="saveSettings()" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;">Save Settings</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- USER DETAIL MODAL -->
+<div id="userModal" class="modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div style="font-weight:700;">User Details</div>
+      <button onclick="closeModal('user')" style="background:none;border:none;color:#64748B;cursor:pointer;font-size:1.3rem;">✕</button>
+    </div>
+    <div class="modal-body" id="userModalBody"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="adminToast" class="toast"></div>
+
+<!-- ═══════════ SCRIPT ═══════════ -->
+<script>
+  // ===== FIREBASE =====
+  const firebaseConfig = {
+    apiKey: "AIzaSyCHZ4_PhE2gbJBDzipArubqJpHW88Alw5o",
+    authDomain: "tournament-62f77.firebaseapp.com",
+    databaseURL: "https://tournament-62f77-default-rtdb.firebaseio.com",
+    projectId: "tournament-62f77",
+    storageBucket: "tournament-62f77.firebasestorage.app",
+    messagingSenderId: "59905181993",
+    appId: "1:59905181993:web:8ad4f721ac50c09c478f38"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.database();
+
+  const ADMIN_EMAIL = 'rajeshjani121@gmail.com';
+
+  // ===== STATE =====
+  let allDeposits = [], allWithdrawals = [], allUsers = [], allKyc = [];
+  let depFilter = 'pending', wdFilter = 'pending', kycFilter = 'pending';
+  let chatUserFilter = null, chatUid = null;
+
+  // ===== AUTH =====
+  async function adminLogin() {
+    const email = document.getElementById('adminEmail').value.trim();
+    const pass = document.getElementById('adminPass').value;
+    if (!email || !pass) { toast('Enter credentials'); return; }
+    try {
+      const cred = await auth.signInWithEmailAndPassword(email, pass);
+      if (cred.user.email !== ADMIN_EMAIL) {
+        auth.signOut(); toast('❌ Not authorized'); return;
+      }
+    } catch(e) { toast('❌ ' + e.message); }
+  }
+
+  function adminLogout() {
+    if (confirm('Logout?')) auth.signOut();
+  }
+
+  auth.onAuthStateChanged(user => {
+    if (user && user.email === ADMIN_EMAIL) {
+      document.getElementById('adminAuth').classList.add('hidden');
+      document.getElementById('adminApp').style.display = 'block';
+      document.getElementById('adminEmailLabel').textContent = user.email;
+      document.getElementById('dashDate').textContent = new Date().toLocaleDateString('en-IN',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+      loadAll();
+    } else {
+      document.getElementById('adminAuth').classList.remove('hidden');
+      document.getElementById('adminApp').style.display = 'none';
+    }
+  });
+
+  // ===== LOAD ALL DATA =====
+  function loadAll() {
+    loadDeposits();
+    loadWithdrawals();
+    loadUsers();
+    loadKyc();
+    loadSettings();
+    loadBroadcastHistory();
+    loadSupportUsers();
+    updateDashStats();
+  }
+
+  function refreshAll() { loadAll(); toast('🔄 Refreshed!'); }
+
+  // ===== DEPOSITS =====
+  function loadDeposits() {
+    db.ref('deposit_requests').orderByChild('timestamp').limitToLast(200).on('value', snap => {
+      allDeposits = [];
+      snap.forEach(c => allDeposits.unshift(c.val()));
+      renderDeposits();
+      updateDepBadge();
+      renderDashPending();
+      updateDashStats();
+    });
+  }
+
+  function updateDepBadge() {
+    const pending = allDeposits.filter(d => d.status==='pending').length;
+    const el = document.getElementById('depBadge');
+    el.textContent = pending || ''; el.style.display = pending ? '' : 'none';
+  }
+
+  function filterDep(f, btn) {
+    depFilter = f;
+    document.querySelectorAll('#page-deposits .tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderDeposits();
+  }
+
+  function renderDeposits() {
+    const list = allDeposits.filter(d => depFilter==='all' ? true : d.status===depFilter);
+    const container = document.getElementById('depositList');
+    if (!list.length) { container.innerHTML = '<div style="color:#64748B;text-align:center;padding:40px;">No '+depFilter+' deposits</div>'; return; }
+    container.innerHTML = list.map(d => depositRow(d)).join('');
+  }
+
+  function depositRow(d) {
+    const date = d.timestamp ? new Date(d.timestamp).toLocaleString('en-IN') : '—';
+    const badge = `<span class="badge badge-${d.status}">${d.status}</span>`;
+    const actions = d.status==='pending' ? `
+      <button onclick="approveDeposit('${d.id}','${d.userId}',${d.amount})" class="btn btn-approve"><i class="ri-check-line"></i>Approve</button>
+      <button onclick="rejectDeposit('${d.id}','${d.userId}')" class="btn btn-reject"><i class="ri-close-line"></i>Reject</button>` : '';
+    return `<div class="table-row" style="grid-template-columns:1fr 1fr 1fr 1fr auto;">
+      <div><div style="font-weight:700;font-size:0.9rem;">₹${fmtINR(d.amount)}</div><div style="font-size:0.72rem;color:#64748B;">${date}</div></div>
+      <div><div style="font-size:0.8rem;color:#94A3B8;">Payment ID</div><div style="font-size:0.82rem;font-weight:600;color:#00E5FF;">${d.paymentId||'—'}</div></div>
+      <div><div style="font-size:0.8rem;color:#94A3B8;">UTR</div><div style="font-size:0.82rem;">${d.utrNumber||'—'}</div></div>
+      <div>${badge}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">${actions}</div>
+    </div>`;
+  }
+
+  async function approveDeposit(id, userId, amount) {
+    if (!confirm('Approve ₹'+fmtINR(amount)+' deposit?')) return;
+    try {
+      // Credit balance
+      const snap = await db.ref('users/'+userId+'/balance').once('value');
+      const newBal = (snap.val()||0) + amount;
+      const depSnap = await db.ref('users/'+userId+'/totalDeposited').once('value');
+      const newDep = (depSnap.val()||0) + amount;
+
+      await db.ref('users/'+userId).update({ balance: newBal, totalDeposited: newDep });
+      await db.ref('deposit_requests/'+id).update({ status:'approved', approvedAt: firebase.database.ServerValue.TIMESTAMP });
+
+      // Handle referral bonus for first deposit
+      const userSnap = await db.ref('users/'+userId).once('value');
+      const userData = userSnap.val();
+      if (userData && !userData.firstDepositDone) {
+        await db.ref('users/'+userId+'/firstDepositDone').set(true);
+        // Find referrer and credit ₹100
+        // (referral system already stores referrals under referrer's uid)
+      }
+
+      toast('✅ Deposit approved! ₹'+fmtINR(amount)+' credited.');
+    } catch(e) { toast('❌ ' + e.message); }
+  }
+
+  async function rejectDeposit(id, userId) {
+    const reason = prompt('Reason for rejection (optional):') || 'Rejected by admin';
+    try {
+      await db.ref('deposit_requests/'+id).update({ status:'rejected', reason, rejectedAt: firebase.database.ServerValue.TIMESTAMP });
+      toast('❌ Deposit rejected.');
+    } catch(e) { toast('❌ ' + e.message); }
+  }
+
+  // ===== WITHDRAWALS =====
+  function loadWithdrawals() {
+    db.ref('withdrawal_requests').orderByChild('timestamp').limitToLast(200).on('value', snap => {
+      allWithdrawals = [];
+      snap.forEach(c => allWithdrawals.unshift(c.val()));
+      renderWithdrawals();
+      updateWdBadge();
+      renderDashPending();
+      updateDashStats();
+    });
+  }
+
+  function updateWdBadge() {
+    const pending = allWithdrawals.filter(w => w.status==='pending').length;
+    const el = document.getElementById('wdBadge');
+    el.textContent = pending || ''; el.style.display = pending ? '' : 'none';
+  }
+
+  function filterWd(f, btn) {
+    wdFilter = f;
+    document.querySelectorAll('#page-withdrawals .tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderWithdrawals();
+  }
+
+  function renderWithdrawals() {
+    const list = allWithdrawals.filter(w => wdFilter==='all' ? true : w.status===wdFilter);
+    const container = document.getElementById('withdrawalList');
+    if (!list.length) { container.innerHTML = '<div style="color:#64748B;text-align:center;padding:40px;">No '+wdFilter+' withdrawals</div>'; return; }
+    container.innerHTML = list.map(w => withdrawalRow(w)).join('');
+  }
+
+  function withdrawalRow(w) {
+    const date = w.timestamp ? new Date(w.timestamp).toLocaleString('en-IN') : '—';
+    const badge = `<span class="badge badge-${w.status}">${w.status}</span>`;
+    const payDetail = w.upiId ? `UPI: ${w.upiId}` : w.paytmNum ? `Paytm: ${w.paytmNum}` : w.accNum ? `Bank: ${w.accNum}` : '—';
+    const actions = w.status==='pending' ? `
+      <button onclick="approveWithdrawal('${w.id}','${w.userId}',${w.amount})" class="btn btn-approve"><i class="ri-check-line"></i>Approve</button>
+      <button onclick="rejectWithdrawal('${w.id}','${w.userId}',${w.amount})" class="btn btn-reject"><i class="ri-close-line"></i>Reject</button>` : '';
+    return `<div class="table-row" style="grid-template-columns:1fr 1fr 1fr 1fr auto;">
+      <div><div style="font-weight:700;font-size:0.9rem;">₹${fmtINR(w.amount)}</div><div style="font-size:0.72rem;color:#64748B;">${date}</div></div>
+      <div><div style="font-size:0.8rem;color:#94A3B8;">Method</div><div style="font-size:0.82rem;font-weight:600;">${(w.method||'').toUpperCase()}</div></div>
+      <div><div style="font-size:0.8rem;color:#94A3B8;">Details</div><div style="font-size:0.78rem;color:#00E5FF;word-break:break-all;">${payDetail}</div></div>
+      <div>${badge}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">${actions}</div>
+    </div>`;
+  }
+
+  async function approveWithdrawal(id, userId, amount) {
+    if (!confirm('Approve ₹'+fmtINR(amount)+' withdrawal? (Make sure payment is sent!)')) return;
+    try {
+      await db.ref('withdrawal_requests/'+id).update({ status:'approved', approvedAt: firebase.database.ServerValue.TIMESTAMP });
+      // Update totalWithdrawn
+      const snap = await db.ref('users/'+userId+'/totalWithdrawn').once('value');
+      await db.ref('users/'+userId+'/totalWithdrawn').set((snap.val()||0) + amount);
+      toast('✅ Withdrawal approved!');
+    } catch(e) { toast('❌ ' + e.message); }
+  }
+
+  async function rejectWithdrawal(id, userId, amount) {
+    if (!confirm('Reject & refund ₹'+fmtINR(amount)+'?')) return;
+    try {
+      // Refund balance
+      const snap = await db.ref('users/'+userId+'/balance').once('value');
+      await db.ref('users/'+userId+'/balance').set((snap.val()||0) + amount);
+      await db.ref('withdrawal_requests/'+id).update({ status:'rejected', rejectedAt: firebase.database.ServerValue.TIMESTAMP });
+      toast('↩️ Withdrawal rejected & refunded!');
+    } catch(e) { toast('❌ ' + e.message); }
+  }
+
+  // ===== USERS =====
+  function loadUsers() {
+    db.ref('users').on('value', snap => {
+      allUsers = [];
+      snap.forEach(c => allUsers.push(c.val()));
+      renderUsers(allUsers);
+    });
+  }
+
+  function searchUsers(q) {
+    if (!q) { renderUsers(allUsers); return; }
+    const lq = q.toLowerCase();
+    renderUsers(allUsers.filter(u => (u.name||'').toLowerCase().includes(lq) || (u.email||'').toLowerCase().includes(lq)));
+  }
+
+  function renderUsers(list) {
+    const container = document.getElementById('userList');
+    if (!list.length) { container.innerHTML = '<div style="color:#64748B;text-align:center;padding:40px;">No users found</div>'; return; }
+    container.innerHTML = list.map(u => userRow(u)).join('');
+  }
+
+  function userRow(u) {
+    const vip = u.totalDeposited>=100000?'💎 Diamond':u.totalDeposited>=25000?'🥇 Gold':u.totalDeposited>=5000?'🥈 Silver':'🥉 Bronze';
+    const kyc = u.kycStatus==='approved'?'<span style="color:#10B981;font-size:0.72rem;">✅ Verified</span>':'<span style="color:#F59E0B;font-size:0.72rem;">⏳ Pending</span>';
+    const joined = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-IN') : '—';
+    return `<div class="table-row" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr auto;">
+      <div class="flex items-center gap-3">
+        <div style="width:36px;height:36px;border-radius:50%;background:#00E5FF22;display:flex;align-items:center;justify-content:center;font-weight:700;color:#00E5FF;flex-shrink:0;">${((u.name||'?')[0]).toUpperCase()}</div>
+        <div><div style="font-weight:700;font-size:0.875rem;">${u.name||'—'}</div><div style="font-size:0.72rem;color:#64748B;">${u.email||'—'}</div></div>
+      </div>
+      <div><div style="font-size:0.8rem;color:#94A3B8;">Balance</div><div style="font-weight:700;color:#10B981;">₹${fmtINR(u.balance||0)}</div></div>
+      <div><div style="font-size:0.8rem;color:#94A3B8;">Deposited</div><div style="font-weight:600;">₹${fmtINR(u.totalDeposited||0)}</div></div>
+      <div><div style="font-size:0.8rem;color:#94A3B8;">KYC</div>${kyc}</div>
+      <div><div style="font-size:0.8rem;color:#94A3B8;">Joined</div><div style="font-size:0.78rem;">${joined}</div></div>
+      <div style="display:flex;gap:6px;">
+        <button onclick="openUserModal('${u.uid}')" class="btn btn-ghost" style="padding:6px 10px;"><i class="ri-eye-line"></i></button>
+        <button onclick="manualCredit('${u.uid}','${u.name}')" class="btn btn-approve" style="padding:6px 10px;"><i class="ri-add-circle-line"></i></button>
+        <button onclick="deductBalance('${u.uid}','${u.name}')" class="btn btn-reject" style="padding:6px 10px;"><i class="ri-subtract-line"></i></button>
+      </div>
+    </div>`;
+  }
+
+  async function manualCredit(uid, name) {
+    const amt = parseFloat(prompt('Credit amount for ' + name + '?'));
+    if (!amt || amt <= 0) return;
+    const reason = prompt('Reason:') || 'Admin credit';
+    const snap = await db.ref('users/'+uid+'/balance').once('value');
+    await db.ref('users/'+uid+'/balance').set((snap.val()||0) + amt);
+    await db.ref('deposit_requests').push({ userId:uid, type:'deposit', amount:amt, paymentId:'ADMIN_CREDIT', method:'admin', status:'approved', note:reason, timestamp: firebase.database.ServerValue.TIMESTAMP });
+    toast('✅ ₹'+fmtINR(amt)+' credited to '+name);
+  }
+
+  async function deductBalance(uid, name) {
+    const amt = parseFloat(prompt('Deduct amount from ' + name + '?'));
+    if (!amt || amt <= 0) return;
+    const snap = await db.ref('users/'+uid+'/balance').once('value');
+    const cur = snap.val()||0;
+    if (amt > cur) { toast('❌ Insufficient balance'); return; }
+    await db.ref('users/'+uid+'/balance').set(cur - amt);
+    toast('✅ ₹'+fmtINR(amt)+' deducted from '+name);
+  }
+
+  async function openUserModal(uid) {
+    const snap = await db.ref('users/'+uid).once('value');
+    const u = snap.val(); if (!u) return;
+    const vip = u.totalDeposited>=100000?'💎 Diamond':u.totalDeposited>=25000?'🥇 Gold':u.totalDeposited>=5000?'🥈 Silver':'🥉 Bronze';
+    document.getElementById('userModalBody').innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+        <div style="background:#1E293B;padding:12px;border-radius:12px;"><div style="font-size:0.72rem;color:#64748B;">Name</div><div style="font-weight:700;">${u.name||'—'}</div></div>
+        <div style="background:#1E293B;padding:12px;border-radius:12px;"><div style="font-size:0.72rem;color:#64748B;">Email</div><div style="font-size:0.82rem;">${u.email||'—'}</div></div>
+        <div style="background:#1E293B;padding:12px;border-radius:12px;"><div style="font-size:0.72rem;color:#64748B;">Balance</div><div style="font-weight:700;color:#10B981;">₹${fmtINR(u.balance||0)}</div></div>
+        <div style="background:#1E293B;padding:12px;border-radius:12px;"><div style="font-size:0.72rem;color:#64748B;">Total Deposited</div><div style="font-weight:700;">₹${fmtINR(u.totalDeposited||0)}</div></div>
+        <div style="background:#1E293B;padding:12px;border-radius:12px;"><div style="font-size:0.72rem;color:#64748B;">Total Withdrawn</div><div style="font-weight:700;">₹${fmtINR(u.totalWithdrawn||0)}</div></div>
+        <div style="background:#1E293B;padding:12px;border-radius:12px;"><div style="font-size:0.72rem;color:#64748B;">KYC Status</div><div style="font-weight:700;">${u.kycStatus||'pending'}</div></div>
+        <div style="background:#1E293B;padding:12px;border-radius:12px;"><div style="font-size:0.72rem;color:#64748B;">Total Trades</div><div style="font-weight:700;">${u.totalTrades||0}</div></div>
+        <div style="background:#1E293B;padding:12px;border-radius:12px;"><div style="font-size:0.72rem;color:#64748B;">Referral Code</div><div style="font-weight:700;color:#00E5FF;">${u.referralCode||'—'}</div></div>
+        <div style="background:#1E293B;padding:12px;border-radius:12px;"><div style="font-size:0.72rem;color:#64748B;">VIP Tier</div><div style="font-weight:700;">${vip}</div></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button onclick="manualCredit('${uid}','${u.name||'User'}')" class="btn btn-approve"><i class="ri-add-circle-line"></i> Credit Balance</button>
+        <button onclick="deductBalance('${uid}','${u.name||'User'}')" class="btn btn-reject"><i class="ri-subtract-line"></i> Deduct Balance</button>
+        <button onclick="approveUserKyc('${uid}')" class="btn" style="background:#6366F122;color:#818CF8;border:1px solid #6366F144;"><i class="ri-shield-check-line"></i> Approve KYC</button>
+      </div>`;
+    document.getElementById('userModal').classList.add('open');
+  }
+
+  // ===== KYC =====
+  function loadKyc() {
+    db.ref('kyc_requests').on('value', snap => {
+      allKyc = [];
+      snap.forEach(c => allKyc.push(c.val()));
+      renderKyc();
+      const pending = allKyc.filter(k => k.status==='pending'||k.status==='submitted').length;
+      const el = document.getElementById('kycBadge');
+      el.textContent = pending || ''; el.style.display = pending ? '' : 'none';
+    });
+  }
+
+  function filterKyc(f, btn) {
+    kycFilter = f;
+    document.querySelectorAll('#page-kyc .tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderKyc();
+  }
+
+  function renderKyc() {
+    const list = allKyc.filter(k => kycFilter==='all' ? true : k.status===kycFilter || (kycFilter==='pending' && k.status==='submitted'));
+    const container = document.getElementById('kycList');
+    if (!list.length) { container.innerHTML = '<div style="color:#64748B;text-align:center;padding:40px;">No KYC requests</div>'; return; }
+    container.innerHTML = list.map(k => kycRow(k)).join('');
+  }
+
+  function kycRow(k) {
+    const date = k.submittedAt ? new Date(k.submittedAt).toLocaleDateString('en-IN') : '—';
+    const actions = (k.status==='pending'||k.status==='submitted') ? `
+      <button onclick="approveUserKyc('${k.uid}')" class="btn btn-approve"><i class="ri-shield-check-line"></i>Approve</button>
+      <button onclick="rejectKyc('${k.uid}')" class="btn btn-reject"><i class="ri-close-line"></i>Reject</button>` : '';
+    return `<div class="table-row" style="grid-template-columns:2fr 1fr 1fr 1fr auto;">
+      <div><div style="font-weight:700;">${k.name||'—'}</div><div style="font-size:0.72rem;color:#64748B;">${date}</div></div>
+      <div><div style="font-size:0.8rem;color:#94A3B8;">ID Type</div><div style="font-weight:600;">${(k.idType||'').toUpperCase()}</div></div>
+      <div><div style="font-size:0.8rem;color:#94A3B8;">ID Number</div><div style="font-size:0.82rem;color:#00E5FF;">${k.idNum||'—'}</div></div>
+      <div><span class="badge badge-${k.status||'pending'}">${k.status||'pending'}</span></div>
+      <div style="display:flex;gap:6px;">${actions}</div>
+    </div>`;
+  }
+
+  async function approveUserKyc(uid) {
+    if (!confirm('Approve KYC?')) return;
+    await db.ref('users/'+uid+'/kycStatus').set('approved');
+    if (allKyc.find(k => k.uid===uid)) await db.ref('kyc_requests/'+uid).update({ status:'approved' });
+    toast('✅ KYC approved!');
+    closeModal('user');
+  }
+
+  async function rejectKyc(uid) {
+    const reason = prompt('Reason for rejection:') || 'Rejected';
+    await db.ref('kyc_requests/'+uid).update({ status:'rejected', reason });
+    await db.ref('users/'+uid+'/kycStatus').set('rejected');
+    toast('❌ KYC rejected.');
+  }
+
+  // ===== SUPPORT CHAT =====
+  function loadSupportUsers() {
+    db.ref('support_chats').on('value', snap => {
+      const container = document.getElementById('chatUserList');
+      if (!snap.val()) { container.innerHTML = '<div style="color:#64748B;font-size:0.82rem;">No chats yet</div>'; return; }
+      const uids = Object.keys(snap.val());
+      container.innerHTML = '';
+      uids.forEach(uid => {
+        const msgs = Object.values(snap.val()[uid]||{});
+        const last = msgs[msgs.length-1];
+        const userInfo = allUsers.find(u => u.uid===uid);
+        const name = userInfo?.name || uid.substr(0,8)+'...';
+        const unread = msgs.filter(m => m.from==='user').length;
+        const div = document.createElement('div');
+        div.style.cssText = 'padding:10px;border-radius:10px;cursor:pointer;margin-bottom:4px;border:1px solid '+(chatUid===uid?'#00E5FF44':'#1E293B')+';background:'+(chatUid===uid?'#00E5FF0A':'transparent');
+        div.onclick = () => openChat(uid, name);
+        div.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;"><div style="font-weight:700;font-size:0.82rem;">${name}</div><div style="width:8px;height:8px;border-radius:50%;background:#10B981;"></div></div><div style="font-size:0.72rem;color:#64748B;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${last?.message||'...'}</div>`;
+        container.appendChild(div);
+      });
+    });
+  }
+
+  async function openChat(uid, name) {
+    chatUid = uid;
+    document.getElementById('chatHeader').innerHTML = `<div style="font-weight:700;">${name}</div><div style="font-size:0.75rem;color:#10B981;">Online</div>`;
+    document.getElementById('chatInputArea').style.display = 'flex';
+
+    db.ref('support_chats/'+uid).on('value', snap => {
+      const msgs = [];
+      snap.forEach(c => msgs.push(c.val()));
+      const body = document.getElementById('chatBody');
+      body.innerHTML = '';
+      msgs.forEach(m => {
+        const isUser = m.from==='user';
+        const div = document.createElement('div');
+        div.style.cssText = 'display:flex;justify-content:'+(isUser?'flex-start':'flex-end')+';margin-bottom:8px;';
+        div.innerHTML = `<div style="max-width:70%;padding:10px 14px;border-radius:16px;font-size:0.82rem;background:${isUser?'#1E293B':'#00E5FF22'};border:1px solid ${isUser?'#334155':'#00E5FF44'};color:${isUser?'#E2E8F0':'#00E5FF'};">${m.message}</div>`;
+        body.appendChild(div);
+      });
+      body.scrollTop = body.scrollHeight;
+    });
+  }
+
+  async function sendAdminReply() {
+    if (!chatUid) return;
+    const input = document.getElementById('adminChatInput');
+    const text = input.value.trim();
+    if (!text) return;
+    await db.ref('support_chats/'+chatUid).push({ from:'support', message:text, timestamp: firebase.database.ServerValue.TIMESTAMP, adminReply:true });
+    input.value = '';
+    toast('✅ Reply sent');
+  }
+
+  // ===== BROADCAST =====
+  async function sendBroadcast() {
+    const title = document.getElementById('bcTitle').value.trim();
+    const message = document.getElementById('bcMessage').value.trim();
+    const type = document.getElementById('bcType').value;
+    if (!title || !message) { toast('Fill title & message'); return; }
+    if (!confirm('Send broadcast to ALL users?')) return;
+    await db.ref('broadcasts').push({ title, message, type, sentAt: firebase.database.ServerValue.TIMESTAMP, sentBy: ADMIN_EMAIL });
+    document.getElementById('bcTitle').value = '';
+    document.getElementById('bcMessage').value = '';
+    toast('📣 Broadcast sent!');
+    loadBroadcastHistory();
+  }
+
+  function loadBroadcastHistory() {
+    db.ref('broadcasts').orderByChild('sentAt').limitToLast(10).once('value', snap => {
+      const items = [];
+      snap.forEach(c => items.unshift(c.val()));
+      const container = document.getElementById('broadcastHistory');
+      if (!items.length) return;
+      container.innerHTML = items.map(b => {
+        const date = b.sentAt ? new Date(b.sentAt).toLocaleString('en-IN') : '—';
+        return `<div style="background:#1E293B;border-radius:12px;padding:12px;margin-bottom:8px;"><div style="font-weight:700;font-size:0.875rem;">${b.title}</div><div style="font-size:0.8rem;color:#94A3B8;margin-top:4px;">${b.message}</div><div style="font-size:0.72rem;color:#64748B;margin-top:6px;">${date}</div></div>`;
+      }).join('');
+    });
+  }
+
+  // ===== SETTINGS =====
+  function loadSettings() {
+    db.ref('settings').once('value', snap => {
+      const s = snap.val() || {};
+      document.getElementById('settingPayout').value = s.payout||82;
+      document.getElementById('settingWinRate').value = s.winRate||45;
+      document.getElementById('settingMinTrade').value = s.minTrade||10;
+      document.getElementById('settingInstamojo').value = s.instamojoLink||'https://www.instamojo.com/@rajeshjani121/';
+      document.getElementById('settingMinDep').value = s.minDeposit||100;
+      document.getElementById('settingMinWd').value = s.minWithdraw||200;
+      document.getElementById('settingRefBonus').value = s.referralBonus||100;
+    });
+  }
+
+  async function saveSettings() {
+    await db.ref('settings').set({
+      payout: parseFloat(document.getElementById('settingPayout').value)||82,
+      winRate: parseFloat(document.getElementById('settingWinRate').value)||45,
+      minTrade: parseFloat(document.getElementById('settingMinTrade').value)||10,
+      instamojoLink: document.getElementById('settingInstamojo').value,
+      minDeposit: parseFloat(document.getElementById('settingMinDep').value)||100,
+      minWithdraw: parseFloat(document.getElementById('settingMinWd').value)||200,
+      referralBonus: parseFloat(document.getElementById('settingRefBonus').value)||100,
+      updatedAt: firebase.database.ServerValue.TIMESTAMP
+    });
+    toast('✅ Settings saved!');
+  }
+
+  // ===== DASHBOARD =====
+  function updateDashStats() {
+    // Users
+    document.getElementById('statUsers').textContent = allUsers.length;
+    const today = new Date(); today.setHours(0,0,0,0);
+    document.getElementById('statNewToday').textContent = allUsers.filter(u => u.createdAt > today.getTime()).length;
+
+    // Deposits
+    const approvedDeps = allDeposits.filter(d => d.status==='approved');
+    const totalDep = approvedDeps.reduce((a,d) => a+(d.amount||0), 0);
+    document.getElementById('statDeposits').textContent = '₹'+fmtINR(totalDep);
+    document.getElementById('statDepPending').textContent = allDeposits.filter(d => d.status==='pending').length;
+
+    // Withdrawals
+    const approvedWds = allWithdrawals.filter(w => w.status==='approved');
+    const totalWd = approvedWds.reduce((a,w) => a+(w.amount||0), 0);
+    document.getElementById('statWithdrawn').textContent = '₹'+fmtINR(totalWd);
+    document.getElementById('statWdPending').textContent = allWithdrawals.filter(w => w.status==='pending').length;
+
+    // Trades
+    const totalTrades = allUsers.reduce((a,u) => a+(u.totalTrades||0), 0);
+    document.getElementById('statTrades').textContent = totalTrades.toLocaleString('en-IN');
+  }
+
+  function renderDashPending() {
+    const depContainer = document.getElementById('dashPendingDep');
+    const wdContainer = document.getElementById('dashPendingWd');
+    const pendingDeps = allDeposits.filter(d => d.status==='pending').slice(0,5);
+    const pendingWds = allWithdrawals.filter(w => w.status==='pending').slice(0,5);
+
+    if (!pendingDeps.length) { depContainer.innerHTML = '<div style="color:#64748B;font-size:0.82rem;text-align:center;padding:24px;">No pending deposits 🎉</div>'; }
+    else depContainer.innerHTML = pendingDeps.map(d => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:#1E293B;border-radius:10px;margin-bottom:6px;">
+        <div><div style="font-weight:700;font-size:0.875rem;">₹${fmtINR(d.amount)}</div><div style="font-size:0.72rem;color:#64748B;">${d.paymentId||'—'}</div></div>
+        <div style="display:flex;gap:4px;">
+          <button onclick="approveDeposit('${d.id}','${d.userId}',${d.amount})" class="btn btn-approve" style="padding:5px 10px;font-size:0.75rem;">✓</button>
+          <button onclick="rejectDeposit('${d.id}','${d.userId}')" class="btn btn-reject" style="padding:5px 10px;font-size:0.75rem;">✕</button>
+        </div>
+      </div>`).join('');
+
+    if (!pendingWds.length) { wdContainer.innerHTML = '<div style="color:#64748B;font-size:0.82rem;text-align:center;padding:24px;">No pending withdrawals 🎉</div>'; }
+    else wdContainer.innerHTML = pendingWds.map(w => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:#1E293B;border-radius:10px;margin-bottom:6px;">
+        <div><div style="font-weight:700;font-size:0.875rem;">₹${fmtINR(w.amount)}</div><div style="font-size:0.72rem;color:#00E5FF;">${w.upiId||w.paytmNum||w.accNum||w.method||'—'}</div></div>
+        <div style="display:flex;gap:4px;">
+          <button onclick="approveWithdrawal('${w.id}','${w.userId}',${w.amount})" class="btn btn-approve" style="padding:5px 10px;font-size:0.75rem;">✓</button>
+          <button onclick="rejectWithdrawal('${w.id}','${w.userId}',${w.amount})" class="btn btn-reject" style="padding:5px 10px;font-size:0.75rem;">✕</button>
+        </div>
+      </div>`).join('');
+  }
+
+  // ===== NAVIGATION =====
+  function navTo(page, el) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-'+page).classList.add('active');
+    document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+    if (el) el.classList.add('active');
+    if (page==='support') loadSupportUsers();
+    if (page==='users') renderUsers(allUsers);
+  }
+
+  // ===== UTILS =====
+  function fmtINR(n) {
+    return new Intl.NumberFormat('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n||0);
+  }
+
+  function toast(msg) {
+    const t = document.getElementById('adminToast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3500);
+  }
+
+  function closeModal(type) {
+    document.getElementById(type+'Modal').classList.remove('open');
+  }
+</script>
+</body>
+</html>
