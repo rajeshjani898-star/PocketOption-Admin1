@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <meta name="theme-color" content="#0A0A0F"/>
+  <title>TradeX Pro — Admin</title>
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css" rel="stylesheet"/>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    :root{--bg:#0A0A0F;--card:#111827;--card2:#1E293B;--border:#1E293B;--text:#E2E8F0;--muted:#64748B;--cyan:#00E5FF;--green:#10B981;--red:#EF4444;--yellow:#F59E0B;--purple:#A78BFA;}
+    html,body{height:100%;}
+    body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden;-webkit-tap-highlight-color:transparent;}
+    ::-webkit-scrollbar{width:4px;height:4px;}::-webkit-scrollbar-thumb{background:#334155;border-radius:2px;}
+    /* AUTH */
+    #adminAuth{position:fixed;inset:0;background:var(--bg);z-index:300;display:flex;align-items:center;justify-content:center;padding:1.5rem;overflow-y:auto;}
+    #adminAuth.hidden{display:none;}
+    /* APP */
+    #adminApp{display:none;height:100vh;flex-direction:column;}
+    #adminApp.show{display:flex;}
+    /* TOP HEADER */
+    #topBar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#0F0F1A;border-bottom:1px solid var(--border);flex-shrink:0;}
+    /* SIDEBAR */
+    #sideOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;}
+    #sideOverlay.show{display:block;}
+    #sidebar{position:fixed;left:0;top:0;bottom:0;width:255px;background:#0F0F1A;border-right:1px solid var(--border);z-index:101;display:flex;flex-direction:column;transform:translateX(-100%);transition:transform .28s cubic-bezier(.4,0,.2,1);overflow-y:auto;}
+    #sidebar.open{transform:translateX(0);}
+    .nav-lnk{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;color:var(--muted);font-size:.875rem;cursor:pointer;transition:all .15s;margin-bottom:2px;}
+    .nav-lnk:hover{background:var(--card2);color:#CBD5E1;}
+    .nav-lnk.active{background:rgba(0,229,255,.1);color:var(--cyan);border:1px solid rgba(0,229,255,.15);}
+    .nav-lnk i{font-size:1.1rem;width:22px;flex-shrink:0;}
+    .nav-badge{margin-left:auto;background:rgba(245,158,11,.15);color:var(--yellow);border:1px solid rgba(245,158,11,.3);padding:1px 7px;border-radius:20px;font-size:.65rem;font-weight:700;}
+    .nav-badge.purple{background:rgba(99,102,241,.15);color:#818CF8;border-color:rgba(99,102,241,.3);}
+    /* PAGE WRAP */
+    #pageWrap{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:72px;}
+    /* BOTTOM NAV */
+    #bottomNav{display:flex;background:#0F0F1A;border-top:1px solid var(--border);flex-shrink:0;}
+    .bn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 2px 6px;cursor:pointer;color:var(--muted);font-size:9px;gap:2px;position:relative;transition:color .15s;}
+    .bn i{font-size:22px;}
+    .bn.active{color:var(--cyan);}
+    .bn-badge{position:absolute;top:4px;right:calc(50% - 18px);background:var(--yellow);color:#000;font-size:9px;font-weight:700;border-radius:10px;padding:1px 5px;min-width:16px;text-align:center;line-height:1.4;}
+    /* PAGES */
+    .page{display:none;padding:14px;}.page.active{display:block;}
+    /* CARDS */
+    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;}
+    /* STAT GRID */
+    .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+    .stat-card{background:linear-gradient(135deg,var(--card),#0F172A);border:1px solid var(--border);border-radius:14px;padding:14px;}
+    .stat-val{font-size:1.4rem;font-weight:900;margin:5px 0 3px;}
+    /* BUTTONS */
+    .btn{display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border-radius:10px;font-size:.8rem;font-weight:600;cursor:pointer;border:none;transition:transform .1s;white-space:nowrap;}
+    .btn:active{transform:scale(.95);}
+    .btn-ok{background:rgba(16,185,129,.12);color:var(--green);border:1px solid rgba(16,185,129,.3);}
+    .btn-no{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.3);}
+    .btn-primary{background:linear-gradient(135deg,var(--cyan),#0066FF);color:#000;font-weight:700;}
+    .btn-ghost{background:var(--card2);color:#94A3B8;}
+    /* TABS */
+    .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+    .tab-pill{padding:5px 13px;border-radius:20px;font-size:.76rem;font-weight:600;cursor:pointer;border:none;background:var(--card2);color:var(--muted);transition:all .15s;}
+    .tab-pill.active{background:var(--cyan);color:#000;}
+    /* INPUT */
+    .inp{background:var(--card2);border:1px solid #334155;border-radius:10px;padding:10px 13px;color:var(--text);outline:none;font-size:.875rem;width:100%;}
+    .inp:focus{border-color:var(--cyan);}
+    .inp-lbl{display:block;font-size:.76rem;color:var(--muted);margin-bottom:5px;}
+    /* BADGE */
+    .badge{display:inline-flex;padding:2px 9px;border-radius:20px;font-size:.67rem;font-weight:700;text-transform:uppercase;}
+    .b-pending{background:rgba(245,158,11,.12);color:var(--yellow);border:1px solid rgba(245,158,11,.3);}
+    .b-approved{background:rgba(16,185,129,.12);color:var(--green);border:1px solid rgba(16,185,129,.3);}
+    .b-rejected{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.3);}
+    .b-submitted{background:rgba(99,102,241,.12);color:#818CF8;border:1px solid rgba(99,102,241,.3);}
+    /* REQUEST CARD */
+    .req-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:13px;margin-bottom:9px;}
+    .req-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
+    .req-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;font-size:.78rem;}
+    .req-lbl{color:var(--muted);font-size:.68rem;margin-bottom:2px;}
+    .req-actions{display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
+    .req-actions .btn{flex:1;justify-content:center;padding:9px;}
+    /* USER CARD */
+    .user-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:13px;margin-bottom:9px;}
+    .user-stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:9px 0;}
+    .ustat{background:var(--card2);border-radius:9px;padding:8px;text-align:center;}
+    .user-acts{display:flex;gap:6px;flex-wrap:wrap;}
+    .user-acts .btn{flex:1;justify-content:center;min-width:70px;}
+    /* CHAT */
+    .chat-wrap{display:flex;flex-direction:column;gap:10px;}
+    .chat-user-panel{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:10px;max-height:160px;overflow-y:auto;}
+    .chat-window{background:var(--card);border:1px solid var(--border);border-radius:14px;display:flex;flex-direction:column;height:420px;overflow:hidden;}
+    .chat-msgs{flex:1;overflow-y:auto;padding:12px;min-height:0;}
+    .chat-input-row{display:flex;gap:7px;padding:10px 12px;border-top:1px solid var(--border);flex-shrink:0;}
+    /* MODAL */
+    .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:200;justify-content:center;align-items:flex-end;}
+    .modal.open{display:flex;}
+    .modal-box{background:var(--card);border:1px solid var(--border);border-radius:20px 20px 0 0;width:100%;max-height:90vh;overflow-y:auto;}
+    .modal-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--card);z-index:1;border-radius:20px 20px 0 0;}
+    .modal-body{padding:16px;}
+    /* TOAST */
+    .toast{position:fixed;bottom:78px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid rgba(0,229,255,.4);color:var(--text);padding:10px 18px;border-radius:12px;z-index:500;display:none;font-size:.85rem;white-space:nowrap;max-width:90vw;text-align:center;}
+    .toast.show{display:block;animation:tup .3s ease;}
+    @keyframes tup{from{opacity:0;transform:translate(-50%,14px);}to{opacity:1;transform:translate(-50%,0);}}
+    /* DESKTOP overrides */
+    @media(min-width:768px){
+      #topBar{display:none;}
+      #sideOverlay{display:none !important;}
+      #sidebar{transform:translateX(0) !important;position:fixed;}
+      #pageWrap{margin-left:255px;padding-bottom:24px;}
+      #bottomNav{display:none !important;}
+      .page{padding:24px;}
+      .stat-grid{grid-template-columns:repeat(4,1fr);}
+      .stat-val{font-size:1.8rem;}
+      .chat-wrap{flex-direction:row;height:calc(100vh - 180px);}
+      .chat-user-panel{width:260px;flex-shrink:0;max-height:none;height:100%;}
+      .chat-window{flex:1;height:100%;}
+      .modal{align-items:center;padding:1rem;}
+      .modal-box{border-radius:20px;max-width:480px;}
+      .toast{top:24px;bottom:auto;right:24px;left:auto;transform:none;animation:tin .3s ease;}
+      @keyframes tin{from{opacity:0;transform:translateX(14px);}to{opacity:1;transform:none;}}
+    }
+  </style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="adminAuth">
+  <div style="width:100%;max-width:380px;">
+    <div style="text-align:center;margin-bottom:28px;">
+      <div style="font-size:2rem;font-weight:900;background:linear-gradient(135deg,#00E5FF,#0066FF);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">TradeX Pro</div>
+      <div style="color:var(--muted);font-size:.82rem;margin-top:3px;">Admin Panel</div>
+    </div>
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:16px;">🔐 Admin Login</div>
+      <label class="inp-lbl">Email</label>
+      <input type="email" id="adminEmail" class="inp" placeholder="admin@example.com" style="margin-bottom:11px;" onkeydown="if(event.key==='Enter')adminLogin()">
+      <label class="inp-lbl">Password</label>
+      <input type="password" id="adminPass" class="inp" placeholder="Password" style="margin-bottom:18px;" onkeydown="if(event.key==='Enter')adminLogin()">
+      <button onclick="adminLogin()" class="btn btn-primary" style="width:100%;justify-content:center;padding:13px;font-size:.95rem;">Login</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="adminApp">
+
+  <!-- Mobile top bar -->
+  <div id="topBar">
+    <button onclick="toggleSide()" class="btn btn-ghost" style="padding:8px 10px;"><i class="ri-menu-line" style="font-size:1.3rem;"></i></button>
+    <div style="font-weight:900;background:linear-gradient(135deg,#00E5FF,#0066FF);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">TradeX Admin</div>
+    <button onclick="refreshAll()" class="btn btn-ghost" style="padding:8px 10px;"><i class="ri-refresh-line" style="font-size:1.2rem;"></i></button>
+  </div>
+
+  <div id="sideOverlay" onclick="closeSide()"></div>
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div style="padding:18px 14px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <div style="font-weight:900;font-size:1.05rem;background:linear-gradient(135deg,#00E5FF,#0066FF);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">TradeX Pro</div>
+      <div style="font-size:.7rem;color:var(--muted);margin-top:2px;">Admin Dashboard</div>
+    </div>
+    <div style="padding:10px 8px;flex:1;overflow-y:auto;">
+      <div class="nav-lnk active" id="snav-dashboard" onclick="navTo('dashboard');closeSide()"><i class="ri-dashboard-3-line"></i>Dashboard</div>
+      <div class="nav-lnk" id="snav-deposits" onclick="navTo('deposits');closeSide()"><i class="ri-bank-card-line"></i>Deposits<span id="depBadge" class="nav-badge" style="display:none"></span></div>
+      <div class="nav-lnk" id="snav-withdrawals" onclick="navTo('withdrawals');closeSide()"><i class="ri-send-plane-line"></i>Withdrawals<span id="wdBadge" class="nav-badge" style="display:none"></span></div>
+      <div class="nav-lnk" id="snav-users" onclick="navTo('users');closeSide()"><i class="ri-team-line"></i>Users</div>
+      <div class="nav-lnk" id="snav-kyc" onclick="navTo('kyc');closeSide()"><i class="ri-shield-check-line"></i>KYC<span id="kycBadge" class="nav-badge purple" style="display:none"></span></div>
+      <div class="nav-lnk" id="snav-support" onclick="navTo('support');closeSide()"><i class="ri-customer-service-2-line"></i>Support</div>
+      <div class="nav-lnk" id="snav-broadcast" onclick="navTo('broadcast');closeSide()"><i class="ri-notification-3-line"></i>Broadcast</div>
+      <div class="nav-lnk" id="snav-settings" onclick="navTo('settings');closeSide()"><i class="ri-settings-3-line"></i>Settings</div>
+      <div class="nav-lnk" onclick="adminLogout()" style="margin-top:14px;"><i class="ri-logout-box-r-line"></i>Logout</div>
+    </div>
+    <div style="padding:11px 14px;border-top:1px solid var(--border);flex-shrink:0;">
+      <div style="font-size:.7rem;color:var(--muted);">Logged in as</div>
+      <div id="adminEmailLabel" style="font-size:.78rem;color:var(--cyan);font-weight:600;word-break:break-all;margin-top:2px;"></div>
+    </div>
+  </div>
+
+  <!-- Page content -->
+  <div id="pageWrap">
+
+    <!-- DASHBOARD -->
+    <div id="page-dashboard" class="page active">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div><h1 style="font-size:1.2rem;font-weight:800;">Dashboard</h1><div style="color:var(--muted);font-size:.72rem;" id="dashDate"></div></div>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-card" style="box-shadow:0 0 20px rgba(0,229,255,.07);">
+          <div style="font-size:.7rem;color:var(--muted);">USERS</div>
+          <div class="stat-val" style="color:var(--cyan);" id="statUsers">—</div>
+          <div style="font-size:.7rem;color:var(--muted);"><span id="statNewToday">0</span> new today</div>
+        </div>
+        <div class="stat-card" style="box-shadow:0 0 20px rgba(16,185,129,.07);">
+          <div style="font-size:.7rem;color:var(--muted);">DEPOSITED</div>
+          <div class="stat-val" style="color:var(--green);" id="statDeposits">₹0</div>
+          <div style="font-size:.7rem;color:var(--yellow);"><span id="statDepPending">0</span> pending</div>
+        </div>
+        <div class="stat-card" style="box-shadow:0 0 20px rgba(239,68,68,.07);">
+          <div style="font-size:.7rem;color:var(--muted);">WITHDRAWN</div>
+          <div class="stat-val" style="color:var(--red);" id="statWithdrawn">₹0</div>
+          <div style="font-size:.7rem;color:var(--yellow);"><span id="statWdPending">0</span> pending</div>
+        </div>
+        <div class="stat-card" style="box-shadow:0 0 20px rgba(167,139,250,.07);">
+          <div style="font-size:.7rem;color:var(--muted);">TRADES</div>
+          <div class="stat-val" style="color:var(--purple);" id="statTrades">—</div>
+          <div style="font-size:.7rem;color:var(--muted);">all users</div>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div style="font-weight:700;font-size:.9rem;">⏳ Pending Deposits</div>
+          <button onclick="navTo('deposits')" class="btn btn-ghost" style="font-size:.72rem;padding:5px 9px;">All</button>
+        </div>
+        <div id="dashPendingDep"><div style="color:var(--muted);text-align:center;padding:18px;font-size:.82rem;">Loading...</div></div>
+      </div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div style="font-weight:700;font-size:.9rem;">⏳ Pending Withdrawals</div>
+          <button onclick="navTo('withdrawals')" class="btn btn-ghost" style="font-size:.72rem;padding:5px 9px;">All</button>
+        </div>
+        <div id="dashPendingWd"><div style="color:var(--muted);text-align:center;padding:18px;font-size:.82rem;">Loading...</div></div>
+      </div>
+    </div>
+
+    <!-- DEPOSITS -->
+    <div id="page-deposits" class="page">
+      <h1 style="font-size:1.2rem;font-weight:800;margin-bottom:12px;">Deposit Requests</h1>
+      <div class="tabs">
+        <button class="tab-pill active" onclick="filterDep('pending',this)">Pending</button>
+        <button class="tab-pill" onclick="filterDep('approved',this)">Approved</button>
+        <button class="tab-pill" onclick="filterDep('rejected',this)">Rejected</button>
+        <button class="tab-pill" onclick="filterDep('all',this)">All</button>
+      </div>
+      <div id="depositList"></div>
+    </div>
+
+    <!-- WITHDRAWALS -->
+    <div id="page-withdrawals" class="page">
+      <h1 style="font-size:1.2rem;font-weight:800;margin-bottom:12px;">Withdrawal Requests</h1>
+      <div class="tabs">
+        <button class="tab-pill active" onclick="filterWd('pending',this)">Pending</button>
+        <button class="tab-pill" onclick="filterWd('approved',this)">Approved</button>
+        <button class="tab-pill" onclick="filterWd('rejected',this)">Rejected</button>
+        <button class="tab-pill" onclick="filterWd('all',this)">All</button>
+      </div>
+      <div id="withdrawalList"></div>
+    </div>
+
+    <!-- USERS -->
+    <div id="page-users" class="page">
+      <h1 style="font-size:1.2rem;font-weight:800;margin-bottom:12px;">Users</h1>
+      <input type="text" class="inp" placeholder="🔍 Search name or email..." style="margin-bottom:12px;" oninput="searchUsers(this.value)">
+      <div id="userList"></div>
+    </div>
+
+    <!-- KYC -->
+    <div id="page-kyc" class="page">
+      <h1 style="font-size:1.2rem;font-weight:800;margin-bottom:12px;">KYC Requests</h1>
+      <div class="tabs">
+        <button class="tab-pill active" onclick="filterKyc('pending',this)">Pending</button>
+        <button class="tab-pill" onclick="filterKyc('submitted',this)">Submitted</button>
+        <button class="tab-pill" onclick="filterKyc('approved',this)">Approved</button>
+        <button class="tab-pill" onclick="filterKyc('all',this)">All</button>
+      </div>
+      <div id="kycList"></div>
+    </div>
+
+    <!-- SUPPORT -->
+    <div id="page-support" class="page">
+      <h1 style="font-size:1.2rem;font-weight:800;margin-bottom:12px;">Support Chats</h1>
+      <div class="chat-wrap">
+        <div class="chat-user-panel">
+          <div style="font-size:.7rem;color:var(--muted);font-weight:600;margin-bottom:8px;">CONVERSATIONS</div>
+          <div id="chatUserList"><div style="color:var(--muted);font-size:.82rem;">Loading...</div></div>
+        </div>
+        <div class="chat-window">
+          <div id="chatHeader" style="padding:11px 14px;border-bottom:1px solid var(--border);font-size:.85rem;color:var(--muted);flex-shrink:0;">Select a conversation</div>
+          <div class="chat-msgs" id="chatBody"></div>
+          <div class="chat-input-row" id="chatInputArea" style="display:none;">
+            <input type="text" id="adminChatInput" class="inp" placeholder="Reply to user..." onkeydown="if(event.key==='Enter')sendAdminReply()">
+            <button onclick="sendAdminReply()" class="btn btn-primary" style="padding:9px 13px;flex-shrink:0;"><i class="ri-send-plane-fill"></i></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BROADCAST -->
+    <div id="page-broadcast" class="page">
+      <h1 style="font-size:1.2rem;font-weight:800;margin-bottom:14px;">Broadcast</h1>
+      <div class="card" style="margin-bottom:12px;">
+        <div style="font-weight:700;margin-bottom:13px;">📣 Message All Users</div>
+        <label class="inp-lbl">Title</label>
+        <input type="text" id="bcTitle" class="inp" placeholder="e.g. 🎉 Weekend Bonus!" style="margin-bottom:10px;">
+        <label class="inp-lbl">Message</label>
+        <textarea id="bcMessage" class="inp" rows="4" placeholder="Your message to all users..." style="margin-bottom:10px;resize:vertical;"></textarea>
+        <label class="inp-lbl">Type</label>
+        <select id="bcType" class="inp" style="margin-bottom:14px;">
+          <option value="info">ℹ️ Info</option>
+          <option value="promo">🎁 Promotion</option>
+          <option value="maintenance">🔧 Maintenance</option>
+          <option value="bonus">💰 Bonus</option>
+        </select>
+        <button onclick="sendBroadcast()" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;font-size:.9rem;"><i class="ri-send-plane-fill"></i>Send Broadcast</button>
+      </div>
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:11px;">History</div>
+        <div id="broadcastHistory"><div style="color:var(--muted);font-size:.82rem;text-align:center;padding:18px;">No broadcasts yet</div></div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="page-settings" class="page">
+      <h1 style="font-size:1.2rem;font-weight:800;margin-bottom:14px;">Settings</h1>
+      <div class="card" style="margin-bottom:12px;">
+        <div style="font-weight:700;margin-bottom:12px;">💰 Trade Settings</div>
+        <label class="inp-lbl">Payout %</label>
+        <input type="number" id="settingPayout" class="inp" placeholder="82" style="margin-bottom:10px;">
+        <label class="inp-lbl">Win Rate % (house edge)</label>
+        <input type="number" id="settingWinRate" class="inp" placeholder="45" style="margin-bottom:10px;">
+        <label class="inp-lbl">Min Trade (₹)</label>
+        <input type="number" id="settingMinTrade" class="inp" placeholder="10" style="margin-bottom:14px;">
+        <button onclick="saveSettings()" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;">Save Trade Settings</button>
+      </div>
+      <div class="card" style="margin-bottom:12px;">
+        <div style="font-weight:700;margin-bottom:12px;">🏦 Payment Settings</div>
+        <label class="inp-lbl">Instamojo Link</label>
+        <input type="text" id="settingInstamojo" class="inp" placeholder="https://instamojo.com/@..." style="margin-bottom:10px;">
+        <label class="inp-lbl">Min Deposit (₹)</label>
+        <input type="number" id="settingMinDep" class="inp" placeholder="100" style="margin-bottom:10px;">
+        <label class="inp-lbl">Min Withdrawal (₹)</label>
+        <input type="number" id="settingMinWd" class="inp" placeholder="200" style="margin-bottom:14px;">
+        <button onclick="saveSettings()" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;">Save Payment Settings</button>
+      </div>
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:12px;">🎁 Referral</div>
+        <label class="inp-lbl">Bonus per referral (₹)</label>
+        <input type="number" id="settingRefBonus" class="inp" placeholder="100" style="margin-bottom:14px;">
+        <button onclick="saveSettings()" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;">Save Referral Settings</button>
+      </div>
+    </div>
+
+  </div><!-- /pageWrap -->
+
+  <!-- Mobile bottom nav -->
+  <nav id="bottomNav">
+    <div class="bn active" onclick="bnav('dashboard',this)"><i class="ri-dashboard-3-line"></i><span>Home</span></div>
+    <div class="bn" onclick="bnav('deposits',this)" style="position:relative;"><i class="ri-bank-card-line"></i><span>Deposits</span><span id="bDepBadge" class="bn-badge" style="display:none;"></span></div>
+    <div class="bn" onclick="bnav('withdrawals',this)" style="position:relative;"><i class="ri-send-plane-line"></i><span>Withdraw</span><span id="bWdBadge" class="bn-badge" style="display:none;"></span></div>
+    <div class="bn" onclick="bnav('users',this)"><i class="ri-team-line"></i><span>Users</span></div>
+    <div class="bn" onclick="bnav('kyc',this)" style="position:relative;"><i class="ri-shield-check-line"></i><span>KYC</span><span id="bKycBadge" class="bn-badge" style="display:none;background:#818CF8;"></span></div>
+  </nav>
+</div>
+
+<!-- USER MODAL -->
+<div id="userModal" class="modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div style="font-weight:700;">User Details</div>
+      <button onclick="closeModal('user')" class="btn btn-ghost" style="padding:6px 10px;"><i class="ri-close-line" style="font-size:1.2rem;"></i></button>
+    </div>
+    <div class="modal-body" id="userModalBody"></div>
+  </div>
+</div>
+
+<div id="adminToast" class="toast"></div>
+
+<script>
+  const firebaseConfig={apiKey:"AIzaSyCHZ4_PhE2gbJBDzipArubqJpHW88Alw5o",authDomain:"tournament-62f77.firebaseapp.com",databaseURL:"https://tournament-62f77-default-rtdb.firebaseio.com",projectId:"tournament-62f77",storageBucket:"tournament-62f77.firebasestorage.app",messagingSenderId:"59905181993",appId:"1:59905181993:web:8ad4f721ac50c09c478f38"};
+  firebase.initializeApp(firebaseConfig);
+  const auth=firebase.auth(), db=firebase.database();
+  const ADMIN='rajeshjani121@gmail.com';
+
+  let allDeposits=[],allWithdrawals=[],allUsers=[],allKyc=[];
+  let depFilter='pending',wdFilter='pending',kycFilter='pending';
+  let chatUid=null;
+
+  // AUTH
+  async function adminLogin(){
+    const e=document.getElementById('adminEmail').value.trim(),p=document.getElementById('adminPass').value;
+    if(!e||!p){toast('Enter credentials');return;}
+    try{const c=await auth.signInWithEmailAndPassword(e,p);if(c.user.email!==ADMIN){auth.signOut();toast('❌ Not authorized');}}
+    catch(err){toast('❌ '+err.message);}
+  }
+  function adminLogout(){if(confirm('Logout?'))auth.signOut();}
+
+  auth.onAuthStateChanged(user=>{
+    if(user&&user.email===ADMIN){
+      document.getElementById('adminAuth').classList.add('hidden');
+      const app=document.getElementById('adminApp');app.style.display='flex';app.classList.add('show');
+      document.getElementById('adminEmailLabel').textContent=user.email;
+      document.getElementById('dashDate').textContent=new Date().toLocaleDateString('en-IN',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+      loadAll();
+    }else{
+      document.getElementById('adminAuth').classList.remove('hidden');
+      document.getElementById('adminApp').style.display='none';
+    }
+  });
+
+  // SIDEBAR
+  function toggleSide(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('sideOverlay').classList.toggle('show');}
+  function closeSide(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sideOverlay').classList.remove('show');}
+
+  // LOAD ALL
+  function loadAll(){loadDeposits();loadWithdrawals();loadUsers();loadKyc();loadSettings();loadBroadcastHistory();loadSupportUsers();}
+  function refreshAll(){loadAll();toast('🔄 Refreshed!');}
+
+  // DEPOSITS
+  function loadDeposits(){
+    db.ref('deposit_requests').orderByChild('timestamp').limitToLast(200).on('value',snap=>{
+      allDeposits=[];snap.forEach(c=>allDeposits.unshift(c.val()));
+      renderDeposits();updateBadges();renderDashPending();updateDashStats();
+    });
+  }
+  function filterDep(f,btn){depFilter=f;document.querySelectorAll('#page-deposits .tab-pill').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderDeposits();}
+  function renderDeposits(){
+    const list=allDeposits.filter(d=>depFilter==='all'||d.status===depFilter);
+    const el=document.getElementById('depositList');
+    if(!list.length){el.innerHTML=empty('No '+depFilter+' deposits');return;}
+    el.innerHTML=list.map(d=>{
+      const dt=d.timestamp?new Date(d.timestamp).toLocaleString('en-IN',{dateStyle:'short',timeStyle:'short'}):'—';
+      const acts=d.status==='pending'?`<button onclick="approveDep('${d.id}','${d.userId}',${d.amount})" class="btn btn-ok"><i class="ri-check-line"></i>Approve</button><button onclick="rejectDep('${d.id}')" class="btn btn-no"><i class="ri-close-line"></i>Reject</button>`:'';
+      return `<div class="req-card"><div class="req-top"><div><div style="font-size:1.05rem;font-weight:800;">₹${fmt(d.amount)}</div><div style="font-size:.7rem;color:var(--muted);">${dt}</div></div><span class="badge b-${d.status||'pending'}">${d.status||'pending'}</span></div><div class="req-grid"><div><div class="req-lbl">Payment ID</div><div style="color:var(--cyan);font-weight:600;font-size:.8rem;">${d.paymentId||'—'}</div></div><div><div class="req-lbl">UTR</div><div style="font-size:.8rem;">${d.utrNumber||'—'}</div></div><div><div class="req-lbl">Method</div><div style="font-size:.8rem;">${d.method||'instamojo'}</div></div><div><div class="req-lbl">User</div><div style="font-size:.72rem;word-break:break-all;">${(d.userId||'').substr(0,12)}...</div></div></div>${acts?`<div class="req-actions">${acts}</div>`:''}</div>`;
+    }).join('');
+  }
+  async function approveDep(id,userId,amount){
+    if(!confirm('Approve ₹'+fmt(amount)+'?'))return;
+    const[b,d]=await Promise.all([db.ref('users/'+userId+'/balance').once('value'),db.ref('users/'+userId+'/totalDeposited').once('value')]);
+    await db.ref('users/'+userId).update({balance:(b.val()||0)+amount,totalDeposited:(d.val()||0)+amount});
+    await db.ref('deposit_requests/'+id).update({status:'approved',approvedAt:firebase.database.ServerValue.TIMESTAMP});
+    toast('✅ ₹'+fmt(amount)+' credited!');
+  }
+  async function rejectDep(id){
+    const r=prompt('Reason (optional):')||'Rejected';
+    await db.ref('deposit_requests/'+id).update({status:'rejected',reason:r,rejectedAt:firebase.database.ServerValue.TIMESTAMP});
+    toast('❌ Deposit rejected');
+  }
+
+  // WITHDRAWALS
+  function loadWithdrawals(){
+    db.ref('withdrawal_requests').orderByChild('timestamp').limitToLast(200).on('value',snap=>{
+      allWithdrawals=[];snap.forEach(c=>allWithdrawals.unshift(c.val()));
+      renderWithdrawals();updateBadges();renderDashPending();updateDashStats();
+    });
+  }
+  function filterWd(f,btn){wdFilter=f;document.querySelectorAll('#page-withdrawals .tab-pill').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderWithdrawals();}
+  function renderWithdrawals(){
+    const list=allWithdrawals.filter(w=>wdFilter==='all'||w.status===wdFilter);
+    const el=document.getElementById('withdrawalList');
+    if(!list.length){el.innerHTML=empty('No '+wdFilter+' withdrawals');return;}
+    el.innerHTML=list.map(w=>{
+      const dt=w.timestamp?new Date(w.timestamp).toLocaleString('en-IN',{dateStyle:'short',timeStyle:'short'}):'—';
+      const pay=w.upiId?`UPI: ${w.upiId}`:w.paytmNum?`Paytm: ${w.paytmNum}`:w.accNum?`Bank: ${w.accNum}`:'—';
+      const acts=w.status==='pending'?`<button onclick="approveWd('${w.id}','${w.userId}',${w.amount})" class="btn btn-ok"><i class="ri-check-line"></i>Approve</button><button onclick="rejectWd('${w.id}','${w.userId}',${w.amount})" class="btn btn-no"><i class="ri-close-line"></i>Reject</button>`:'';
+      return `<div class="req-card"><div class="req-top"><div><div style="font-size:1.05rem;font-weight:800;">₹${fmt(w.amount)}</div><div style="font-size:.7rem;color:var(--muted);">${dt}</div></div><span class="badge b-${w.status||'pending'}">${w.status||'pending'}</span></div><div class="req-grid"><div><div class="req-lbl">Method</div><div style="font-weight:600;font-size:.8rem;">${(w.method||'').toUpperCase()}</div></div><div><div class="req-lbl">Details</div><div style="color:var(--cyan);font-size:.75rem;word-break:break-all;">${pay}</div></div></div>${acts?`<div class="req-actions">${acts}</div>`:''}</div>`;
+    }).join('');
+  }
+  async function approveWd(id,userId,amount){
+    if(!confirm('Approve ₹'+fmt(amount)+'?\n(Confirm you have sent payment!)'))return;
+    await db.ref('withdrawal_requests/'+id).update({status:'approved',approvedAt:firebase.database.ServerValue.TIMESTAMP});
+    const s=await db.ref('users/'+userId+'/totalWithdrawn').once('value');
+    await db.ref('users/'+userId+'/totalWithdrawn').set((s.val()||0)+amount);
+    toast('✅ Withdrawal approved!');
+  }
+  async function rejectWd(id,userId,amount){
+    if(!confirm('Reject & refund ₹'+fmt(amount)+'?'))return;
+    const s=await db.ref('users/'+userId+'/balance').once('value');
+    await db.ref('users/'+userId+'/balance').set((s.val()||0)+amount);
+    await db.ref('withdrawal_requests/'+id).update({status:'rejected',rejectedAt:firebase.database.ServerValue.TIMESTAMP});
+    toast('↩️ Rejected & refunded!');
+  }
+
+  // USERS
+  function loadUsers(){
+    db.ref('users').on('value',snap=>{allUsers=[];snap.forEach(c=>allUsers.push(c.val()));renderUsers(allUsers);updateDashStats();});
+  }
+  function searchUsers(q){const lq=q.toLowerCase();renderUsers(q?allUsers.filter(u=>(u.name||'').toLowerCase().includes(lq)||(u.email||'').toLowerCase().includes(lq)):allUsers);}
+  function renderUsers(list){
+    const el=document.getElementById('userList');
+    if(!list.length){el.innerHTML=empty('No users found');return;}
+    el.innerHTML=list.map(u=>{
+      const vip=u.totalDeposited>=100000?'💎':u.totalDeposited>=25000?'🥇':u.totalDeposited>=5000?'🥈':'🥉';
+      const kyc=u.kycStatus==='approved'?'<span style="color:var(--green);font-size:.75rem;">✅ KYC</span>':'<span style="color:var(--yellow);font-size:.75rem;">⏳ KYC</span>';
+      const nm=(u.name||'User').replace(/'/g,'');
+      return `<div class="user-card"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><div style="width:38px;height:38px;border-radius:50%;background:rgba(0,229,255,.1);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--cyan);font-size:1rem;flex-shrink:0;">${((u.name||'?')[0]).toUpperCase()}</div><div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:.875rem;">${u.name||'—'}</div><div style="font-size:.7rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${u.email||'—'}</div></div><div style="display:flex;align-items:center;gap:5px;flex-shrink:0;">${vip}${kyc}</div></div><div class="user-stats-grid"><div class="ustat"><div style="font-weight:700;color:var(--green);font-size:.85rem;">₹${fmt(u.balance||0)}</div><div style="font-size:.63rem;color:var(--muted);">Balance</div></div><div class="ustat"><div style="font-weight:700;font-size:.85rem;">₹${fmt(u.totalDeposited||0)}</div><div style="font-size:.63rem;color:var(--muted);">Deposited</div></div><div class="ustat"><div style="font-weight:700;font-size:.85rem;">${u.totalTrades||0}</div><div style="font-size:.63rem;color:var(--muted);">Trades</div></div></div><div class="user-acts"><button onclick="openUserModal('${u.uid}')" class="btn btn-ghost"><i class="ri-eye-line"></i>View</button><button onclick="manualCredit('${u.uid}','${nm}')" class="btn btn-ok"><i class="ri-add-circle-line"></i>Credit</button><button onclick="deductBal('${u.uid}','${nm}')" class="btn btn-no"><i class="ri-subtract-line"></i>Deduct</button></div></div>`;
+    }).join('');
+  }
+  async function manualCredit(uid,name){
+    const amt=parseFloat(prompt('Credit ₹ for '+name+'?'));if(!amt||amt<=0)return;
+    const r=prompt('Reason:')||'Admin credit';
+    const s=await db.ref('users/'+uid+'/balance').once('value');
+    await db.ref('users/'+uid+'/balance').set((s.val()||0)+amt);
+    await db.ref('deposit_requests').push({userId:uid,type:'deposit',amount:amt,paymentId:'ADMIN',method:'admin',status:'approved',note:r,timestamp:firebase.database.ServerValue.TIMESTAMP});
+    toast('✅ ₹'+fmt(amt)+' credited to '+name);
+  }
+  async function deductBal(uid,name){
+    const amt=parseFloat(prompt('Deduct ₹ from '+name+'?'));if(!amt||amt<=0)return;
+    const s=await db.ref('users/'+uid+'/balance').once('value');
+    if(amt>(s.val()||0)){toast('❌ Insufficient balance');return;}
+    await db.ref('users/'+uid+'/balance').set((s.val()||0)-amt);
+    toast('✅ ₹'+fmt(amt)+' deducted from '+name);
+  }
+  async function openUserModal(uid){
+    const snap=await db.ref('users/'+uid).once('value'),u=snap.val();if(!u)return;
+    const vip=u.totalDeposited>=100000?'💎 Diamond':u.totalDeposited>=25000?'🥇 Gold':u.totalDeposited>=5000?'🥈 Silver':'🥉 Bronze';
+    const nm=(u.name||'User').replace(/'/g,'');
+    document.getElementById('userModalBody').innerHTML=`
+      <div style="text-align:center;margin-bottom:14px;">
+        <div style="width:54px;height:54px;border-radius:50%;background:rgba(0,229,255,.1);display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:900;color:var(--cyan);margin:0 auto 8px;">${((u.name||'?')[0]).toUpperCase()}</div>
+        <div style="font-weight:700;">${u.name||'—'}</div><div style="font-size:.78rem;color:var(--muted);">${u.email||'—'}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:14px;">
+        ${uBox('Balance','₹'+fmt(u.balance||0),'var(--green)')}${uBox('Deposited','₹'+fmt(u.totalDeposited||0),null)}
+        ${uBox('Withdrawn','₹'+fmt(u.totalWithdrawn||0),null)}${uBox('Trades',u.totalTrades||0,null)}
+        ${uBox('KYC',u.kycStatus||'pending',u.kycStatus==='approved'?'var(--green)':'var(--yellow)')}${uBox('VIP',vip,null)}
+        ${uBox('Ref Code',u.referralCode||'—','var(--cyan)')}${uBox('Won',u.wonTrades||0,null)}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button onclick="manualCredit('${uid}','${nm}');closeModal('user')" class="btn btn-ok" style="justify-content:center;padding:10px;"><i class="ri-add-circle-line"></i>Credit Balance</button>
+        <button onclick="deductBal('${uid}','${nm}');closeModal('user')" class="btn btn-no" style="justify-content:center;padding:10px;"><i class="ri-subtract-line"></i>Deduct Balance</button>
+        <button onclick="approveKYC('${uid}');closeModal('user')" class="btn" style="justify-content:center;padding:10px;background:rgba(99,102,241,.12);color:#818CF8;border:1px solid rgba(99,102,241,.3);"><i class="ri-shield-check-line"></i>Approve KYC</button>
+      </div>`;
+    document.getElementById('userModal').classList.add('open');
+  }
+  function uBox(lbl,val,col){return `<div style="background:var(--card2);border-radius:10px;padding:10px;"><div style="font-size:.67rem;color:var(--muted);">${lbl}</div><div style="font-weight:700;font-size:.85rem;${col?'color:'+col+';':''}">${val}</div></div>`;}
+
+  // KYC
+  function loadKyc(){
+    db.ref('kyc_requests').on('value',snap=>{allKyc=[];snap.forEach(c=>allKyc.push(c.val()));renderKyc();updateBadges();});
+  }
+  function filterKyc(f,btn){kycFilter=f;document.querySelectorAll('#page-kyc .tab-pill').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderKyc();}
+  function renderKyc(){
+    const list=allKyc.filter(k=>kycFilter==='all'?true:(kycFilter==='pending'?(k.status==='pending'||k.status==='submitted'):k.status===kycFilter));
+    const el=document.getElementById('kycList');
+    if(!list.length){el.innerHTML=empty('No KYC requests');return;}
+    el.innerHTML=list.map(k=>{
+      const dt=k.submittedAt?new Date(k.submittedAt).toLocaleDateString('en-IN'):'—';
+      const acts=(k.status==='pending'||k.status==='submitted')?`<button onclick="approveKYC('${k.uid}')" class="btn btn-ok"><i class="ri-shield-check-line"></i>Approve</button><button onclick="rejectKYC('${k.uid}')" class="btn btn-no"><i class="ri-close-line"></i>Reject</button>`:'';
+      return `<div class="req-card"><div class="req-top"><div><div style="font-weight:700;">${k.name||'—'}</div><div style="font-size:.7rem;color:var(--muted);">${dt}</div></div><span class="badge b-${k.status||'pending'}">${k.status||'pending'}</span></div><div class="req-grid"><div><div class="req-lbl">ID Type</div><div style="font-weight:600;font-size:.8rem;">${(k.idType||'').toUpperCase()}</div></div><div><div class="req-lbl">ID Number</div><div style="color:var(--cyan);font-size:.8rem;">${k.idNum||'—'}</div></div><div><div class="req-lbl">DOB</div><div style="font-size:.8rem;">${k.dob||'—'}</div></div></div>${acts?`<div class="req-actions">${acts}</div>`:''}</div>`;
+    }).join('');
+  }
+  async function approveKYC(uid){if(!confirm('Approve KYC?'))return;await db.ref('users/'+uid+'/kycStatus').set('approved');if(allKyc.find(k=>k.uid===uid))await db.ref('kyc_requests/'+uid).update({status:'approved'});toast('✅ KYC approved!');}
+  async function rejectKYC(uid){const r=prompt('Reason:')||'Rejected';await db.ref('kyc_requests/'+uid).update({status:'rejected',reason:r});await db.ref('users/'+uid+'/kycStatus').set('rejected');toast('❌ KYC rejected');}
+
+  // SUPPORT
+  function loadSupportUsers(){
+    db.ref('support_chats').on('value',snap=>{
+      const el=document.getElementById('chatUserList');
+      if(!snap.val()){el.innerHTML='<div style="color:var(--muted);font-size:.82rem;">No chats yet</div>';return;}
+      el.innerHTML='';
+      Object.entries(snap.val()).forEach(([uid,msgs])=>{
+        const list=Object.values(msgs||{});const last=list[list.length-1];
+        const u=allUsers.find(u=>u.uid===uid);const name=u?.name||uid.substr(0,10)+'...';
+        const div=document.createElement('div');
+        div.style.cssText='padding:9px;border-radius:9px;cursor:pointer;margin-bottom:4px;border:1px solid '+(chatUid===uid?'rgba(0,229,255,.3)':'var(--border)')+';background:'+(chatUid===uid?'rgba(0,229,255,.05)':'transparent');
+        div.onclick=()=>openChat(uid,name);
+        div.innerHTML=`<div style="font-weight:700;font-size:.82rem;">${name}</div><div style="font-size:.7rem;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${last?.message||'...'}</div>`;
+        el.appendChild(div);
+      });
+    });
+  }
+  function openChat(uid,name){
+    chatUid=uid;
+    document.getElementById('chatHeader').innerHTML=`<div style="font-weight:700;">${name}</div><div style="font-size:.7rem;color:var(--green);">● Online</div>`;
+    document.getElementById('chatInputArea').style.display='flex';
+    db.ref('support_chats/'+uid).on('value',snap=>{
+      const msgs=[];snap.forEach(c=>msgs.push(c.val()));
+      const body=document.getElementById('chatBody');body.innerHTML='';
+      msgs.forEach(m=>{
+        const isU=m.from==='user';const div=document.createElement('div');
+        div.style.cssText='display:flex;justify-content:'+(isU?'flex-start':'flex-end')+';margin-bottom:7px;';
+        div.innerHTML=`<div style="max-width:72%;padding:8px 12px;border-radius:13px;font-size:.8rem;background:${isU?'var(--card2)':'rgba(0,229,255,.1)'};border:1px solid ${isU?'var(--border)':'rgba(0,229,255,.2)'};color:${isU?'var(--text)':'var(--cyan)'};">${m.message}</div>`;
+        body.appendChild(div);
+      });
+      body.scrollTop=body.scrollHeight;
+    });
+  }
+  async function sendAdminReply(){
+    if(!chatUid)return;const inp=document.getElementById('adminChatInput');const text=inp.value.trim();if(!text)return;
+    await db.ref('support_chats/'+chatUid).push({from:'support',message:text,timestamp:firebase.database.ServerValue.TIMESTAMP,adminReply:true});
+    inp.value='';toast('✅ Sent');
+  }
+
+  // BROADCAST
+  async function sendBroadcast(){
+    const t=document.getElementById('bcTitle').value.trim(),m=document.getElementById('bcMessage').value.trim(),ty=document.getElementById('bcType').value;
+    if(!t||!m){toast('Fill title & message');return;}if(!confirm('Send to ALL users?'))return;
+    await db.ref('broadcasts').push({title:t,message:m,type:ty,sentAt:firebase.database.ServerValue.TIMESTAMP,sentBy:ADMIN});
+    document.getElementById('bcTitle').value='';document.getElementById('bcMessage').value='';
+    toast('📣 Broadcast sent!');loadBroadcastHistory();
+  }
+  function loadBroadcastHistory(){
+    db.ref('broadcasts').orderByChild('sentAt').limitToLast(10).once('value',snap=>{
+      const items=[];snap.forEach(c=>items.unshift(c.val()));
+      const el=document.getElementById('broadcastHistory');if(!items.length)return;
+      const icons={info:'ℹ️',promo:'🎁',maintenance:'🔧',bonus:'💰'};
+      el.innerHTML=items.map(b=>{const dt=b.sentAt?new Date(b.sentAt).toLocaleString('en-IN',{dateStyle:'short',timeStyle:'short'}):'—';return `<div style="background:var(--card2);border-radius:11px;padding:11px;margin-bottom:8px;"><div style="font-weight:700;font-size:.85rem;">${icons[b.type]||'📣'} ${b.title}</div><div style="font-size:.78rem;color:#94A3B8;margin-top:3px;">${b.message}</div><div style="font-size:.68rem;color:var(--muted);margin-top:5px;">${dt}</div></div>`;}).join('');
+    });
+  }
+
+  // SETTINGS
+  function loadSettings(){
+    db.ref('settings').once('value',snap=>{const s=snap.val()||{};
+      document.getElementById('settingPayout').value=s.payout||82;
+      document.getElementById('settingWinRate').value=s.winRate||45;
+      document.getElementById('settingMinTrade').value=s.minTrade||10;
+      document.getElementById('settingInstamojo').value=s.instamojoLink||'https://www.instamojo.com/@rajeshjani121/';
+      document.getElementById('settingMinDep').value=s.minDeposit||100;
+      document.getElementById('settingMinWd').value=s.minWithdraw||200;
+      document.getElementById('settingRefBonus').value=s.referralBonus||100;
+    });
+  }
+  async function saveSettings(){
+    await db.ref('settings').set({payout:parseFloat(document.getElementById('settingPayout').value)||82,winRate:parseFloat(document.getElementById('settingWinRate').value)||45,minTrade:parseFloat(document.getElementById('settingMinTrade').value)||10,instamojoLink:document.getElementById('settingInstamojo').value,minDeposit:parseFloat(document.getElementById('settingMinDep').value)||100,minWithdraw:parseFloat(document.getElementById('settingMinWd').value)||200,referralBonus:parseFloat(document.getElementById('settingRefBonus').value)||100,updatedAt:firebase.database.ServerValue.TIMESTAMP});
+    toast('✅ Settings saved!');
+  }
+
+  // DASHBOARD
+  function updateDashStats(){
+    document.getElementById('statUsers').textContent=allUsers.length;
+    const today=new Date();today.setHours(0,0,0,0);
+    document.getElementById('statNewToday').textContent=allUsers.filter(u=>u.createdAt>today.getTime()).length;
+    document.getElementById('statDeposits').textContent='₹'+fmt(allDeposits.filter(d=>d.status==='approved').reduce((a,d)=>a+(d.amount||0),0));
+    document.getElementById('statDepPending').textContent=allDeposits.filter(d=>d.status==='pending').length;
+    document.getElementById('statWithdrawn').textContent='₹'+fmt(allWithdrawals.filter(w=>w.status==='approved').reduce((a,w)=>a+(w.amount||0),0));
+    document.getElementById('statWdPending').textContent=allWithdrawals.filter(w=>w.status==='pending').length;
+    document.getElementById('statTrades').textContent=allUsers.reduce((a,u)=>a+(u.totalTrades||0),0).toLocaleString('en-IN');
+  }
+  function renderDashPending(){
+    const pDeps=allDeposits.filter(d=>d.status==='pending').slice(0,5);
+    const pWds=allWithdrawals.filter(w=>w.status==='pending').slice(0,5);
+    document.getElementById('dashPendingDep').innerHTML=pDeps.length?pDeps.map(d=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 10px;background:var(--card2);border-radius:9px;margin-bottom:6px;"><div><div style="font-weight:700;font-size:.875rem;">₹${fmt(d.amount)}</div><div style="font-size:.68rem;color:var(--cyan);">${d.paymentId||'—'}</div></div><div style="display:flex;gap:4px;"><button onclick="approveDep('${d.id}','${d.userId}',${d.amount})" class="btn btn-ok" style="padding:5px 9px;font-size:.72rem;">✓</button><button onclick="rejectDep('${d.id}')" class="btn btn-no" style="padding:5px 9px;font-size:.72rem;">✕</button></div></div>`).join(''):'<div style="color:var(--muted);font-size:.8rem;text-align:center;padding:18px;">No pending 🎉</div>';
+    document.getElementById('dashPendingWd').innerHTML=pWds.length?pWds.map(w=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 10px;background:var(--card2);border-radius:9px;margin-bottom:6px;"><div><div style="font-weight:700;font-size:.875rem;">₹${fmt(w.amount)}</div><div style="font-size:.68rem;color:var(--cyan);">${w.upiId||w.paytmNum||w.accNum||w.method||'—'}</div></div><div style="display:flex;gap:4px;"><button onclick="approveWd('${w.id}','${w.userId}',${w.amount})" class="btn btn-ok" style="padding:5px 9px;font-size:.72rem;">✓</button><button onclick="rejectWd('${w.id}','${w.userId}',${w.amount})" class="btn btn-no" style="padding:5px 9px;font-size:.72px;">✕</button></div></div>`).join(''):'<div style="color:var(--muted);font-size:.8rem;text-align:center;padding:18px;">No pending 🎉</div>';
+  }
+
+  // BADGES
+  function updateBadges(){
+    const dp=allDeposits.filter(d=>d.status==='pending').length;
+    const wp=allWithdrawals.filter(w=>w.status==='pending').length;
+    const kp=allKyc.filter(k=>k.status==='pending'||k.status==='submitted').length;
+    ['depBadge','bDepBadge'].forEach(id=>setBadge(id,dp));
+    ['wdBadge','bWdBadge'].forEach(id=>setBadge(id,wp));
+    ['kycBadge','bKycBadge'].forEach(id=>setBadge(id,kp));
+  }
+  function setBadge(id,n){const el=document.getElementById(id);if(el){el.textContent=n;el.style.display=n?'':'none';}}
+
+  // NAV
+  let curPage='dashboard';
+  function navTo(page){
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.getElementById('page-'+page).classList.add('active');
+    document.querySelectorAll('.nav-lnk').forEach(n=>n.classList.remove('active'));
+    const snav=document.getElementById('snav-'+page);if(snav)snav.classList.add('active');
+    curPage=page;
+    if(page==='support')loadSupportUsers();
+    if(page==='broadcast')loadBroadcastHistory();
+    document.getElementById('pageWrap').scrollTop=0;
+  }
+  function bnav(page,el){
+    document.querySelectorAll('.bn').forEach(b=>b.classList.remove('active'));
+    el.classList.add('active');navTo(page);
+  }
+
+  // UTILS
+  function fmt(n){return new Intl.NumberFormat('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n||0);}
+  function empty(msg){return `<div style="color:var(--muted);text-align:center;padding:38px;font-size:.875rem;">${msg}</div>`;}
+  function toast(msg){const t=document.getElementById('adminToast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),3500);}
+  function closeModal(type){document.getElementById(type+'Modal').classList.remove('open');}
+  document.querySelectorAll('.modal').forEach(m=>m.onclick=e=>{if(e.target===m)m.classList.remove('open');});
+</script>
+</body>
+</html>
